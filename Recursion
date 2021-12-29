@@ -1,0 +1,166 @@
+.syntax unified
+  .cpu cortex-m4
+  .fpu softvfp
+  .thumb
+  
+  .global   quicksort
+  .global   partition
+  .global   swap
+
+@ quicksort subroutine
+@ Sort an array of words using Hoare's quicksort algorithm
+@ https://en.wikipedia.org/wiki/Quicksort 
+@
+@ Parameters:
+@   R0: Array start address
+@   R1: lo index of portion of array to sort
+@   R2: hi index of portion of array to sort
+@
+@ Return:
+@   none
+quicksort:
+ 
+
+  @ *** PSEUDOCODE ***
+  @ if (lo < hi) { // !!! You must use signed comparison (e.g. BGE) here !!!
+  @   p = partition(array, lo, hi);
+  @   quicksort(array, lo, p - 1);
+  @   quicksort(array, p + 1, hi);
+  @ }
+
+  @
+  @ your implementation goes here
+  @
+
+ // didnt fully comment as was self explanatory
+
+ PUSH    {R4-R7, LR}                      @ add any registers R4...R12 that you use
+
+  MOV   R4, #0
+  MOV   R5, R0     
+  MOV   R6, R1    
+  MOV   R7, R2   
+  CMP   R6, R7     
+  BGE   endSort
+  
+  MOV   R0, R5
+  MOV   R1, R6
+  MOV   R2, R7
+  BL    partition   @   p = partition(array, lo, hi);
+
+  MOV   R4, R0
+  MOV   R0, R5
+  MOV   R1, R6
+  MOV   R2, R4
+  SUB   R2, R2, #1
+  BL    quicksort   @   quicksort(array, lo, p - 1);
+
+  MOV   R0, R5
+  MOV   R1, R4
+  ADD   R1, R1, #1
+  MOV   R2, R7
+  BL    quicksort   @   quicksort(array, p + 1, hi); }
+
+endSort:
+  POP     {R4-R7, PC}                      @ add any registers R4...R12 that you use
+
+
+
+@ partition subroutine
+@ Partition an array of words into two parts such that all elements before some
+@   element in the array that is chosen as a 'pivot' are less than the pivot
+@   and all elements after the pivot are greater than the pivot.
+@
+@ Based on Lomuto's partition scheme (https://en.wikipedia.org/wiki/Quicksort)
+@
+@ Parameters:
+@   R0: array start address
+@   R1: lo index of partition to sort
+@   R2: hi index of partition to sort
+@
+@ Return:
+@   R0: pivot - the index of the chosen pivot value
+partition:
+  
+
+  @ *** PSEUDOCODE ***
+  @ pivot = array[hi];
+  @ i = lo;
+  @ for (j = lo; j <= hi; j++) {
+  @   if (array[j] < pivot) {
+  @     swap (array, i, j);
+  @     i = i + 1;
+  @   }
+  @ }
+  @ swap(array, i, hi);
+  @ return i;
+
+  @
+  @ your implementation goes here
+  @
+
+  PUSH    {R4-R7, R9-R10, LR}                      @ add any registers R4...R12 that you use
+
+  MOV   R9, R0                       @ dupAddress = address
+  MOV   R4, R1                       @ i = lo;
+  MOV   R10, R2                      @ hiStore = hi;
+  LDR   R7, [R9, R10, LSL #2]        @ pivot = array[addressStore];
+  MOV   R5, R4                       @ j = lo;
+forLoop:
+  CMP   R5, R10                      @ for (j = lo; j <= hi; j++) {
+  BGT   endFor
+  LDR   R6, [R9, R5, LSL #2]       
+  CMP   R6, R7                       @ if (array[j] < pivot) {
+  BGE   endIf
+  MOV   R1, R4                       @ R1 = i;
+  MOV   R2, R5                       @ R2 = j;
+  MOV   R0, R9                       @ R0 = address;
+  BL    swap                         @  swap (array, i, j);
+  ADD   R4, R4, #1                   @  i++; } }
+endIf:
+  ADD   R5, R5, #1                   @ j++;
+  B     forLoop
+
+
+//same comments as lines 115-118
+endFor:
+  MOV   R0, R9                       
+  MOV   R1, R4                       
+  MOV   R2, R10                      
+  BL    swap                         
+  MOV   R0, R4                       
+
+  POP     {R4-R7, R9-R10, PC}                      @ add any registers R4...R12 that you use
+
+
+
+@ swap subroutine
+@ Swap the elements at two specified indices in an array of words.
+@
+@ Parameters:
+@   R0: array - start address of an array of words
+@   R1: a - index of first element to be swapped
+@   R2: b - index of second element to be swapped
+@
+@ Return:
+@   none
+swap:
+ 
+
+  @
+  @ your implementation goes here
+  @
+
+  PUSH    {R4-R7, LR}   @push all used
+  
+  MOV   R4, R0                @ address1 = array;
+  LDR   R6, [R4, R1, LSL #2]  @ aStore = memory[address1];
+  MOV   R5, R0                @ address2 = array;
+  LDR   R7, [R5, R2, LSL #2]  @ bStore = memory[address2];
+  STR   R7, [R4, R1, LSL #2]  @ memory[address1] = bStore;
+  STR   R6, [R5, R2, LSL #2]  @ memory[address2] = aStore;
+  
+  POP     {R4-R7, PC}   @pop all used 
+
+
+.end
