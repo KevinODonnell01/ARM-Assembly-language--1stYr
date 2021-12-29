@@ -1,0 +1,327 @@
+isWinning:
+
+  PUSH {R4-R11, LR}
+
+  MOV R4, R0
+  MOV R5, #7                        //total column
+  MOV R6, #6                        //total row
+  MUL R7, R1, R5                   // Row x total number of columns + a few digits in this row for fixed-point jump
+  ADD R7, R2
+  LDRB R8, [R4, R7]                 //load disc
+
+  CMP R8, #0                        return-1, if 0 = empty 
+  BEQ emptySlot
+ 
+  //horizontal
+  MOV R9, R1                        //row number
+  MOV R10, R2                       //column number
+  MOV R11, #0                       //counter
+  SUB R10, #4                       // Back to the 4 digits to locate the farthest possible starting point
+  CMP R10, #0                      // if the number of rows after -4 is less than 0, then 0 is the starting point
+  BLT setZero
+  B endZero
+
+  setZero:                         
+  MOV R10, #0
+  endZero:
+
+  WhileH4:                           Main loop
+  CMP R11, #4                        If count=4, it proves that there are four pieces connected together, so the traversal ends
+  BEQ winH4
+  CMP R10, #7                       
+  // If column=7, it means that the maximum number of columns (6) is exceeded, which proves that there is no horizontal line and ends directly
+  BEQ endH4
+
+  MOV R7, #0                        // Re-zero R7 every time
+  MUL R7, R1, R5                    // Save the number to be compared in R7 for comparison
+  ADD R7, R10
+  LDRB R7, [R4, R7]
+
+  CMP R7, R8                       // Compare the extracted number with the number at the specified location
+  BNE NoConnect                    // If they are not equal, it means that the connection will be interrupted if there is the same number in front, so the jump count is reset to zero
+  ADD R11, #1                      // If equal, count+1
+  B endNoConnect                   // jump over
+
+  NoConnect:                        
+  MOV R11, #0
+  endNoConnect:
+  ADD R10, #1                       
+  B WhileH4
+
+  winH4:                            
+  MOV R0, R8
+  B endwin
+  endH4:
+ 
+  //vertical                        
+  MOV R9, R1                        //row number
+  MOV R10, R2                       //column number
+  MOV R11, #0
+  SUB R9, #4
+  CMP R9, #0
+  BLT setZero2
+  B endZero2
+
+  setZero2:
+  MOV R9, #0
+  endZero2:
+
+  WhileV4:
+  CMP R11, #4
+  BEQ winV4
+  CMP R9, #6
+  BEQ endV4
+
+  MOV R7, #0
+  MUL R7, R9, R5
+  ADD R7, R2
+  LDRB R7, [R4, R7]
+
+  CMP R7, R8
+  BNE NoConnect2
+  ADD R11, #1
+  B endNoConnect2
+
+  NoConnect2:
+  MOV R11, #0
+  endNoConnect2:
+  ADD R9, #1
+  B WhileV4
+
+  winV4:
+  MOV R0, R8
+  B endwin
+  endV4:
+
+  //diagonal right to left          
+  MOV R9, R1                        //row number
+  MOV R10, R2                       //column number
+  MOV R11, #0
+  SUB R9, R1, R2                    /
+  CMP R9, #0
+  BLT setZero3
+  B endZero3
+
+  setZero3:
+  MOV R9, #0
+  endZero3:
+
+  SUB R10, R2, R1                   
+  CMP R10, #0
+  BLT setZero4
+  B endZero4
+
+  setZero4:
+  MOV R10, #0
+  endZero4:
+
+  WhileDR4:
+  CMP R11, #4
+  BEQ winDR4
+  CMP R9, #6
+  BEQ endDR4
+  CMP R10, #7
+  BEQ endDR4
+
+  MOV R7, #0
+  MUL R7, R9, R5
+  ADD R7, R10
+  LDRB R7, [R4, R7]
+
+  CMP R7, R8
+  BNE NoConnect3
+  ADD R11, #1
+  B endNoConnect3
+
+  NoConnect3:
+  MOV R11, #0
+  endNoConnect3:
+  ADD R9, #1
+  ADD R10, #1
+  B WhileDR4
+
+  winDR4:
+  MOV R0, R8
+  B endwin
+  endDR4:                           
+  //diagonal left to right          
+  MOV R9, R1                        //row number
+  MOV R10, R2                       //column number
+  MOV R11, #0
+  SUB R9, R1, R2
+  CMP R9, #0
+  BLT setMax
+  B endMax
+
+  setMax:                            
+  MOV R9, #0
+  endMax:
+
+  ADD R10, R2, R1
+  CMP R10, #6
+  BGT setMax2
+  B   endMax2
+
+  setMax2:                           
+  MOV R10, #6
+  endMax2:
+
+  WhileDL4:
+  CMP R11, #4
+  BEQ winDL4
+  CMP R9, #6
+  BEQ endDL4
+  CMP R10, #0
+  BEQ endDL4
+
+  MOV R7, #0
+  MUL R7, R9, R5
+  ADD R7, R10
+  LDRB R7, [R4, R7]
+
+  CMP R7, R8
+  BNE NoConnect4
+  ADD R11, #1
+  B endNoConnect4
+
+  NoConnect4:
+  MOV R11, #0
+  endNoConnect4:
+  ADD R9, #1
+  SUB R10, #1
+  B WhileDL4
+
+  winDL4:
+  MOV R0, R8
+  B endwin
+  endDL4:
+
+  MOV R0, #0
+  B endwin
+  emptySlot:
+  MOV R0, #-1
+  endwin:                          
+
+  POP {R4-R11, PC}
+
+@ playColumn subroutine
+@ Play a disc in a specified column of a Connect 4 board .
+@ Parameters :
+@ R0 : address of connect 4 board
+@ R1 : column number
+@ R2 : disc colour , 1 for yellow , 2 for red
+@ Return :
+@ R0 : row number where the disc landed or -1 if the column was full
+
+playRow:                            
+  PUSH {R4-R9, LR}
+
+  MOV R4, R0                        //address
+  MOV R5, #7                        //total column
+  MOV R6, #0                        //row
+  MOV R7, #0                        //count
+
+  MUL R8, R5, R6                    
+  ADD R8, R1
+  LDRB R9, [R4, R8]
+
+  WhilePlayR:                       
+  CMP R7, #6                        
+  BHS fullGrid
+  CMP R9, #0                        
+  BEQ endPlayR
+
+  MOV R8, #0                        
+  ADD R7, #1                        //count+1
+  ADD R6, #1                        
+  MUL R8, R5, R6                   
+  ADD R8, R1
+  LDRB R9, [R4, R8]
+
+  B WhilePlayR
+  fullGrid:
+  MOV R0, #-1                       //return-1
+  B endRow
+  endPlayR:
+  STRB R2, [R4, R8]                 
+  MOV R0, R7                        
+  endRow:
+
+  POP {R4-R9, PC}
+
+@ findWinning subroutine
+@ Find a column in a game of Connect 4 where , if the specified colour
+@ is played , the corresponding player would win .
+@ Parameters :
+@ R0 : address of connect 4 board
+@ R1 : disc colour (1 for yellow , 2 for red )
+@ Return :
+@ R0 : column number that would result in a winning move , -1
+@ if there is no winning move
+
+findWinning:                       
+  PUSH {R4-R10, LR}
+
+  MOV R4, R0                        
+  MOV R6, #0                        
+  LDR R7, =0x20000050               
+
+  WhileStore:                      
+  CMP R8, #42                       
+  BEQ endStore
+  LDRB R5, [R0, R8]                 
+  STRB R5, [R7, R8]                 
+  ADD R8, #1                       
+  B WhileStore
+  endStore:
+
+  MOV R5, R1                        
+
+  WhileFind:                        
+  CMP R9, R5                        
+  BEQ endFind
+  CMP R6, #7                        
+  BEQ noWin
+
+  MOV R0, R4                        
+  MOV R1, R6
+  MOV R2, R5
+  BL playRow
+
+  CMP R0, #-1                       
+  BEQ Skip
+  B endSkip
+  Skip:
+  ADD R6, #1                       
+  B WhileFind
+  endSkip:
+
+  MOV R1, R0                        
+  MOV R0, R4
+  MOV R2, R6
+  BL isWinning
+
+  MOV R9, R0                        
+  MOV R8, #0                        
+  WhileStore2:                      
+  CMP R8, #42                      
+  BEQ endStore2
+  LDRB R10, [R7, R8]
+  STRB R10, [R4, R8]
+  ADD R8, #1
+  B WhileStore2
+  endStore2:
+
+  ADD R6, #1                        
+  B WhileFind
+  noWin:
+  MOV R0, #-1                      
+  B endFindWinning
+  endFind:
+  SUB R6, #1                       
+  MOV R0, R6                        
+  endFindWinning:
+
+  POP {R4-R10, PC}
+
+  BX    lr                          
