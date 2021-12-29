@@ -1,0 +1,348 @@
+.syntax unified
+  .cpu cortex-m4
+  .fpu softvfp
+  .thumb
+  
+  .global   wordsearch
+  .global   searchLR
+  .global   searchTB
+  .global   searchTLBR
+
+
+@ wordsearch subroutine
+@ 
+@ Parameters:
+@   R0: start address of 2D array
+@   R1: start address of sequence of strings
+@ Return:
+@   R0: number of strings that were found
+wordsearch:
+// starting address fro each word 
+PUSH {R3-R11}
+
+MOV R4, R0 //store 2d array address
+MOV R5, R1 // store original string set 
+MOV R6, #0 // count 
+
+MOV R7, R5 //duplicate
+
+stringchecker7:
+LDRB R8, [R7]
+CMP R8, #0
+BEQ  skip7 
+
+//left to right 
+MOV R0, R4         // restore paremters
+MOv R1, R5
+BL  searchLR
+CMP R0, #1         //if(r0==1){
+BNE TBseacher7
+ADD R6, R6, #1    // count ++; }
+B   getNext7      // else {
+
+// top to bottom
+TBseacher7:
+MOV R0, R4                 // restore paremters     
+MOV R1, R5
+BL  searchTB     // }
+CMP R0, #1       //if(r0==1){
+BNE TLBRsearcher7
+ADD R6, R6, #1  // count ++; }
+B   getNext7    // else {
+
+ //top left bottom right 
+TLBRsearcher7:
+MOV R0, R4                // restore paremters
+MOV R1, R5
+BL  searchTLBR  // }
+CMP R0, #1      //if(r0==1){
+BNE getNext7     // count ++; }
+ADD R6, R6, #1   // else { not found get new string}
+
+getNext7:
+MOV R0, R5     // saved address
+addmore:
+ADD R0, R0, #1   // add one until null terminated met
+LDRB R9, [R0]  
+CMP R9, #0
+BEQ skip7       
+B   addmore
+
+skip7:
+ADD R0, R0, #1 // next letter so use and re do the sub routines 
+LDRB R9, [R0]
+CMP R9, #0
+BEQ overover7  //double null terminated
+MOV R7, R0
+B   stringchecker7
+
+overover7:
+MOV R0, R6          // move R^ counter into R0 to match parameters
+POP     {R3-R11, PC}
+
+
+@ searchLR subroutine
+@
+@ Parameters:
+@   R0: start address of 2D array
+@   R1: start address of string
+@ Return:
+@   R0: 0 if the string was not found, 1 if it was found
+searchLR:
+
+// get length of string 
+
+ PUSH {R3-R11, LR}
+ 
+ MOV R5, #0        //set counter for string length 
+ MOV R4, R7        // move string into r4
+ LDRB R6, [R4]     // load string into R6
+
+ ReCheck5: 
+ CMP R6, #0        //check if null terminates
+ BEQ Lengthfound5
+ ADD R4, R4, #1    // incremt
+ LDRB R6, [R4]
+ ADD R5, R5, #1
+ B   ReCheck5
+
+Lengthfound5:
+// length = R5
+ MOV R4, R7        // reset R4 to string address
+ MOV R3, R0        // set R3 to matriz address
+
+ // start to compare the two 
+ MOV R6, #12 //end of row counter
+                   // R7 = letter from string
+                   // R8 = letter from matrix
+ 
+ continue5:
+ LDRB R7, [R4]     // load in first ch from both
+ LDRB R8, [R3]
+ MOV  R11, #1
+ 
+ Recheck25:         // While  (stringletterA != matrixletterX) {
+ CMP  R7, R8       // if (stringletterA == matrixletterX) {
+ BEQ  startOfString5// branch }
+ ADD  R3, R3, #1   // else { R3++;
+ LDRB R8, [R3]     // R8 = address[r3];
+ ADD  R9, R9, #1   //count++
+ CMP  R9, R6       // if (R9 = 12)
+ BNE  Recheck25    // {
+ overlap5:
+ MOV  R9, #0       // R9 = 0 ; @reset counter
+ ADD  R10, R10, #1 // rowsfinsied++
+ CMP  R10, R6      // if ( rowsfinised ==12 ) {
+ BEQ  NotFound5     // R0=0 } }
+ B    Recheck25     // }
+
+ startOfString5:    // Do{
+ CMP  R11, R5      // if (stringlengthcounter == stringlength) {
+ BEQ  found5        // r0=1}
+ ADD R4, R4, #1    // else {  R4++;
+ ADD R3, R3, #1    // R3++;
+ ADD R9, R9, #1    // check if fits row
+ CMP R9, R6
+ BGE overlap5 
+ LDRB R7, [R4]     //R7 = address[r4];
+ LDRB R8, [R3]     // R8 = address[r3];
+ CMP  R7, R8       // if (stringletterX == matrixletterX) 
+ BNE  reStart5      // {
+ ADD  R11, R11, #1 //stringlengthcounter++ }whle(stringlengthcounter != stringlength)
+ B    startOfString5// else {restart}
+
+ reStart5:
+ MOV R4, R1        // reset R4 to string address
+ B continue5
+
+
+
+ found5:
+ MOV R0, #1        //string found // R0=1;
+ MOV R7, R4
+ B over5
+ NotFound5:
+ MOV R0, #0        // strung not found // R0=0;
+ MOV R7, R4
+ over5:
+
+
+POP     {R3-R11, PC}
+@ searchTB subroutine
+@
+@ Parameters:
+@   R0: start address of 2D array
+@   R1: start address of string
+@ Return:
+@   R0: 0 if the string was not found, 1 if it was found
+searchTB:
+PUSH {R3-R11, LR}
+ 
+ MOV R5, #0        //set counter for string length 
+ MOV R4, R7        // move string into r4
+ LDRB R6, [R4]     // load string into R6
+
+ ReCheck: 
+ CMP R6, #0        //check if null terminates
+ BEQ Lengthfound
+ ADD R4, R4, #1    // incremt
+ LDRB R6, [R4]
+ ADD R5, R5, #1
+ B   ReCheck
+
+Lengthfound:
+// length = R5
+ MOV R4, R7        // reset R4 to string address
+ MOV R3, R0        // set R3 to matriz address
+ MOV R11, #1 
+ // start to compare the two 
+ MOV R6, #12 //end of row counter
+                   // R7 = letter from string
+                   // R8 = letter from matrix
+ 
+ continue:
+ LDRB R7, [R4]     // load in first ch from both
+ LDRB R8, [R3]
+ 
+ Recheck2:         // While  (stringletterA != matrixletterX) {
+ CMP  R7, R8       // if (stringletterA == matrixletterX) {
+ BEQ  startOfString// branch }
+ ADD  R3, R3, #12   // else { R3++;
+ LDRB R8, [R3]     // R8 = address[r3];
+ ADD  R9, R9, #1   //count++
+ CMP  R9, R6       // if (R9 = 12)
+ BNE  Recheck2     // {
+ MOV  R9, #0       // R9 = 0 ; @reset counter
+ ADD  R10, R10, #1 // colfinsied++
+ MOV  R3, R0 
+ ADD  R3, R3, R10
+ LDRB R8, [R3]
+ CMP  R10, R6      // if ( rowsfinised ==12 ) {
+ BEQ  NotFound     // R0=0 } }
+ B    Recheck2     // }
+
+ startOfString:    // Do{
+ CMP  R11, R5      // if (stringlengthcounter == stringlength) {
+ BEQ  found        // r0=1}
+ ADD R4, R4, #1    // else {  R4++;
+ ADD R3, R3, #12    // R3++;
+ LDRB R7, [R4]     //R7 = address[r4];
+ LDRB R8, [R3]     // R8 = address[r3];
+ CMP  R7, R8       // if (stringletterX == matrixletterX) 
+ BNE  reStart      // {
+ ADD  R11, R11, #1 //stringlengthcounter++ }whle(stringlengthcounter != stringlength)
+ B    startOfString// else {restart}
+
+ reStart:
+ MOV R4, R1        // reset R4 to string address
+ B continue
+
+
+
+ found:
+ MOV R0, #1        //string found // R0=1;
+ MOV R7, R4
+ B over
+ NotFound:
+ MOV R0, #0        // strung not found // R0=0;
+ MOV R7, R4
+ over:
+
+ 
+POP     {R3-R11, PC}
+
+
+
+
+@ searchTLBR subroutine
+@
+@ Parameters:
+@   R0: start address of 2D array
+@   R1: start address of string
+@ Return:
+@   R0: 0 if the string was not found, 1 if it was found
+searchTLBR:
+// get length of string 
+
+ PUSH {R3-R11, LR}
+ 
+ MOV R5, #0        //set counter for string length 
+ MOV R4, R7        // move string into r4
+ LDRB R6, [R4]     // load string into R6
+
+ ReCheck3: 
+ CMP R6, #0        //check if null terminates
+ BEQ Lengthfound2
+ ADD R4, R4, #1    // incremt
+ LDRB R6, [R4]
+ ADD R5, R5, #1
+ B   ReCheck3
+
+Lengthfound2:
+// length = R5
+ MOV R4, R7        // reset R4 to string address
+ MOV R3, R0        // set R3 to matriz address
+
+ // start to compare the two 
+ MOV R6, #12 //end of row counter
+                   // R7 = letter from string
+                   // R8 = letter from matrix
+ 
+ continue2:
+ LDRB R7, [R4]     // load in first ch from both
+ LDRB R8, [R3]
+ MOV  R11, #1
+ 
+ Recheck33:         // While  (stringletterA != matrixletterX) {
+ CMP  R7, R8       // if (stringletterA == matrixletterX) {
+ BEQ  startOfString2// branch }
+ ADD  R3, R3, #1   // else { R3++;
+ LDRB R8, [R3]     // R8 = address[r3];
+ ADD  R9, R9, #1   //count++
+ CMP  R9, R6       // if (R9 = 12)
+ BNE  Recheck33    // {
+ MOV  R9, #0       // R9 = 0 ; @reset counter
+ ADD  R10, R10, #1 // rowsfinsied++
+ CMP  R10, R6      // if ( rowsfinised ==12 ) {
+ BEQ  NotFound2     // R0=0 } }
+ B    Recheck33     // }
+
+ startOfString2:    // Do{
+ CMP  R11, R5      // if (stringlengthcounter == stringlength) {
+ BEQ  found2        // r0=1}
+ ADD R4, R4, #1    // else {  R4++;
+ ADD R3, R3, #13    // R3++;
+ LDRB R7, [R4]     //R7 = address[r4];
+ LDRB R8, [R3]     // R8 = address[r3];
+ CMP  R7, R8       // if (stringletterX == matrixletterX) 
+ BNE  reStart2      // {
+ ADD  R11, R11, #1 //stringlengthcounter++ }whle(stringlengthcounter != stringlength)
+ B    startOfString2// else {restart}
+
+ reStart2:
+ MOV R4, R1        // reset R4 to string address
+ MUL R11, R11, R6
+ SUB R3, R3, R11
+ MOV R11, #1
+ ADd R3, R3, #1
+ B continue2
+
+
+
+ found2:
+ MOV R0, #1        //string found // R0=1;
+ MOV R7, R4
+ B over2
+ NotFound2:
+ MOV R0, #0        // strung not found // R0=0;
+ MOV R7, R4
+ over2:
+
+ 
+POP     {R3-R11, PC}
+@
+@ You can copy-and-paste your searchTLBR subroutine from Part 2 here
+@
+
+
+.end
